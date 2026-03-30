@@ -1,0 +1,152 @@
+---
+name: oms-redispatch
+description: 用于基于当前仓库中的 OMS 重分仓实现，分析订单是否应该重新分仓、优先改规则还是直接重跑分仓，并在用户确认后生成对应的执行 payload。适用于 SO/DO 重分仓、重分仓原因分析、重分仓前风险提示与执行方案整理。
+---
+
+# OMS Re-Dispatch
+
+## Overview
+
+这个 skill 处理的是“重分仓分析 + 执行前确认”，不是一个假想的智能推荐 API。  
+按当前仓库代码，已经找到的能力是 SO/DO 重新执行分仓、解除分仓后再分配、以及合单取消后重新拆单；没有看到独立的 dry-run 或 suggestion 接口，所以默认先诊断，再给执行方案。
+
+## When To Use
+
+在这些情况优先使用：
+
+- 用户说“这个订单要不要重新分仓”
+- 用户说“帮我分析为什么这单没有分到预期仓”
+- 用户说“订单执行前/执行中能不能重新分仓”
+- 用户说“给我一个重分仓建议”
+- 用户已经决定重跑分仓，需要整理请求体和风险
+
+## Core Capabilities
+
+### 1. 判断该改规则还是直接重分仓
+
+如果问题是“很多单都会重复命中同样错误逻辑”，优先建议先调整规则。  
+如果问题是“单个订单需要重新计算分仓结果”，才建议走 re-dispatch 接口。
+
+### 1.1 判断是执行前还是执行中
+
+- 执行前：优先评估 SO / DO 直接重分仓
+- 执行中：优先评估是否要先解除分仓、取消 WMS 处理，或走合单取消后重新拆单
+- 已发货、部分发货、Short Shipped：默认不要直接建议重分仓
+
+### 2. 解释当前代码会如何选规则页
+
+基于 `getMostSuitableRules(...)`：
+
+- 判断是否跨境单
+- 判断是否样品单
+- 从默认页和非默认页里选命中的一页
+
+这个 skill 可以根据用户提供的订单特征，解释“为什么它理论上会命中某一页”。
+
+### 3. 生成 SO / DO 重分仓执行方案
+
+已识别到两个执行入口：
+
+- `POST /routing/re-dispatch-do`
+- `POST /routing/re-dispatch-so`
+
+请求体都是 `ReDispatchVO`，但当前实现实际使用的是 `orderNoList`。
+
+### 4. 解释解除分仓和合单取消后的重分仓
+
+如果用户问的是：
+
+- “执行中还能不能改仓”
+- “WMS 已经处理了还能不能重分仓”
+- “合单取消后能不能重新拆单”
+
+就优先结合：
+
+- `references/redispatch-safety.md`
+- `references/rule-selection-logic.md`
+
+说明是直接 re-dispatch，还是要先解除分仓 / 取消后再重分仓。
+
+## Workflow
+
+### Step 1. 先判断是分析还是执行
+
+如果用户只说“看看要不要重分仓”“给建议”，先走分析模式。  
+如果用户明确说“直接重分仓”，也要先补一句风险提示，再整理执行 payload。
+
+### Step 2. 区分 SO 还是 DO
+
+- 已经到 delivery order 维度的问题，优先看 DO 重分仓
+- 还在 sales order 分配阶段，优先看 SO 重分仓
+
+如果用户没有说明层级，就先问一句或基于上下文推断，但不要把 SO/DO 混为一个接口。
+
+### Step 3. 做规则命中分析
+
+先加载：
+
+- `references/rule-selection-logic.md`
+- `references/redispatch-safety.md`
+
+分析时重点关注：
+
+- 收货国家是否不是 `US/USA`
+- 商品 tags 里是否包含 `SAMPLE`
+- merchant 当前是否存在非默认 page rule
+- 用户预期仓位问题是一次性异常还是规则性问题
+- 当前订单是否已经进入 `Allocated`、`Warehouse Processing` 或更后置状态
+
+### Step 4. 给出“重分仓建议”
+
+由于代码里没看到 dry-run 建议接口，建议要基于代码逻辑推断，常见结论只有三类：
+
+- 建议先改规则页，再处理订单
+- 建议直接对该单执行 SO re-dispatch
+- 建议直接对该单执行 DO re-dispatch
+
+如果订单已处于执行中，再补充两类：
+
+- 建议先解除分仓，再重分仓
+- 建议先走取消或合单取消后的重新拆单流程
+
+### Step 5. 生成执行 payload
+
+默认执行体结构：
+
+```json
+{
+  "orderNoList": ["SO123456"]
+}
+```
+
+虽然 `ReDispatchVO` 还有 `orderNo`、`merchantNo`、`tenantId`，但当前控制器实现里实际使用的是 `orderNoList`。
+
+### Step 6. 执行前必须再次确认
+
+在任何执行建议之前，都要明确提醒用户：
+
+- 这不是 dry-run
+- 代码会删除旧的 dispatch 记录后重跑
+- 结果可能与当前分仓结果不同
+- 如果订单已进入执行中，可能还需要先处理 WMS、状态机和解除分仓
+
+## Output Rules
+
+- 分析模式下，先给“原因解释 + 建议动作”，不要直接输出执行命令
+- 执行模式下，必须同时给出“接口 + payload + 风险”
+- 如果缺少判断依据，要清楚写“当前无法从代码推断”
+- 不要宣称系统存在“智能推荐 API”，因为当前代码里没看到
+
+## Important Limits
+
+- 当前已识别的是执行接口，不是模拟接口
+- SO 重分仓会删除 `OrderDispatchDO` 和 `OrderDispatchItemLineDO`
+- DO 重分仓会删除旧的 `OrderDispatchDO`
+- 找不到订单时，代码会跳过该订单而不是整体失败
+- 执行中场景需要结合解除分仓与取消流程，不要把重分仓接口当成万能入口
+- `CONFIG_REPLACEMENT_ORDER` 在当前选页逻辑里未看到单独命中分支，分析时不要把它说成已经参与选页
+
+## References
+
+- `references/rule-selection-logic.md`
+- `references/redispatch-safety.md`
