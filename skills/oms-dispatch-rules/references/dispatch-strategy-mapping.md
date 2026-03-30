@@ -1,6 +1,8 @@
 # Dispatch Strategy Mapping
 
-这个文档把用户的自然语言需求映射到仓库里真实存在的分仓接口、模型和枚举。
+这个文档把用户的自然语言需求映射到仓库里真实存在的分仓接口、模型和枚举。  
+默认不要把这里的控制器、接口路径和模型名直接展示给客户。  
+其中 `Custom Rule` 相关内容仅用于历史配置排查，不作为现行对客能力。
 
 ## 1. 控制器入口
 
@@ -17,7 +19,7 @@
 
 请求模型：`DispatchRuleVO`
 
-### Custom Rule
+### Legacy: Custom Rule（已弃用，不对客展示）
 
 - `POST /routing/v2/custom-rule`：新增 custom rule
 - `PUT /routing/v2/custom-rule`：更新 custom rule
@@ -26,6 +28,8 @@
 - `GET /routing/v2/customRule/shipService`：模糊查询 ship service code
 
 请求模型：`AddCustomRuleReqVO`、`UpdateCustomRuleReqVO`
+
+仅在排查历史配置、兼容行为或存量数据时参考；不要作为新方案推荐。
 
 ### Special Rule
 
@@ -54,7 +58,7 @@
 - “允许拆单” / “尽量拆单满足” → `MINIMAL_SPLIT`
 - “样品不能拆” → `SAMPLE_NO_SPLIT`
 - “按 accounting code 指定仓” → `SPECIFY_WAREHOUSE`
-- “命中 custom rule 后指定仓” → `CUSTOM`
+- 历史上“命中 custom rule 后指定仓” → `CUSTOM`（已弃用，不作为新方案推荐）
 
 ### item line 分配附加策略
 
@@ -109,9 +113,10 @@
 - `switchOn` 表示该 rule item 是否启用
 - 页级规则最终落地时，仍会通过 `DispatchStrategyEnum` 驱动运行时 dispatch 逻辑
 
-## 4. `AddCustomRuleReqVO` 映射方式
+## 4. Legacy: `AddCustomRuleReqVO` 映射方式（仅历史排查）
 
-适合“满足条件时，优先指定某仓”的表达。
+该能力已弃用，不适合继续作为新方案输出。  
+只有在排查历史“满足条件时优先指定某仓”的存量配置时，才参考本节。
 
 关键字段：
 
@@ -185,8 +190,8 @@
 当用户给出自然语言需求时，优先产出：
 
 1. 这属于哪类规则
-2. 应调用哪个接口
-3. 应使用哪个模型
-4. 对应 JSON 草案
-5. 哪些字段仍缺失
-6. 哪些地方可能被后端校验拒绝
+2. 建议配置方案或明确说明“该能力已弃用”
+3. 对业务效果的解释
+4. 哪些信息仍缺失
+5. 哪些地方可能被后端校验拒绝
+6. 仅在明确要求时再附内部模型或 JSON 草案

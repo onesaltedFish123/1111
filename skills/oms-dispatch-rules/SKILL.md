@@ -1,6 +1,6 @@
 ---
 name: oms-dispatch-rules
-description: 用于根据当前仓库中的 OMS 分仓代码，把自然语言需求转换成客户可读的规则配置方案与内部执行草案。适用于新增/修改/删除分仓规则页、创建 custom rule、开关 special rule、重置默认规则，或需要判断某个分仓需求在当前系统里如何配置与落地的场景。
+description: 用于根据当前仓库中的 OMS 分仓代码，把自然语言需求转换成客户可读的规则配置方案与内部执行草案。适用于新增/修改/删除分仓规则页、开关 special rule、重置默认规则，或需要判断某个分仓需求在当前系统里如何配置与落地的场景。
 ---
 
 # OMS Dispatch Rules
@@ -15,10 +15,10 @@ description: 用于根据当前仓库中的 OMS 分仓代码，把自然语言�
 在以下场景优先使用这个 skill：
 
 - 用户说“帮我新增一个分仓规则页 / 默认页 / 样品单规则 / 跨境规则”
-- 用户说“按渠道、承运商、ship service、件数建一个 custom rule”
 - 用户说“打开/关闭某个 special rule”
 - 用户需要把口头需求翻译成系统配置方案、所需字段和内部执行草案
 - 用户想先知道当前规则配置是否会违反后端校验
+- 用户提到历史上的“条件路由 / custom rule”，需要确认该能力是否已弃用或如何做兼容排查
 
 ## Supported Tasks
 
@@ -27,22 +27,17 @@ description: 用于根据当前仓库中的 OMS 分仓代码，把自然语言�
 当用户描述的是“默认页 / 样品单页 / 跨境页 / 替换单页 / 某套 page rule 组合”时，优先在内部映射到 `DispatchRuleVO`。  
 具体控制器、接口路径和持久化细节见 `references/dispatch-strategy-mapping.md`，默认不要对客户展开。
 
-### 2. Custom Rule 方案
-
-当用户描述的是“满足某些条件时指定仓库”时，优先在内部映射到 `AddCustomRuleReqVO` / `UpdateCustomRuleReqVO`。  
-默认对外只解释“什么条件下会走哪个仓”，不要直接抛接口和请求体。
-
-### 3. Special Rule 开关
+### 2. Special Rule 开关
 
 当用户只是在切换某个 `ruleCode` 的启停状态时，内部落到 `OrderDispatchSpecialRuleDTO`。  
 对客户只需要解释规则效果、影响范围和确认点。
 
-### 4. Reset 默认规则
+### 3. Reset 默认规则
 
 如果用户表达的是“把 merchant 的整套默认规则重置成一份新组合”，优先在内部映射到 `ResetRuleVO`。  
 默认输出应强调“整体替换”的业务含义和风险，而不是技术入口。
 
-### 5. 运行时规则映射与客户解释
+### 4. 运行时规则映射与客户解释
 
 如果用户不是要直接改配置，而是想知道：
 
@@ -55,7 +50,13 @@ description: 用于根据当前仓库中的 OMS 分仓代码，把自然语言�
 - `references/dispatch-strategy-mapping.md`
 - `references/dispatch-rule-constraints.md`
 
-把自然语言映射成页级规则、custom rule、special rule 和运行时分仓能力的组合说明，优先用客户能理解的业务语言表达。
+把自然语言映射成页级规则、special rule 和运行时分仓能力的组合说明，优先用客户能理解的业务语言表达。
+
+### 5. 历史条件路由排查
+
+如果用户提到“渠道 / 承运商 / Ship Service / 商品行数命中后强制指定仓库”，先不要把它当成现行能力输出。  
+先明确说明：`custom rule / 条件路由` 已弃用，不再作为默认展示或新方案推荐。  
+只有当用户明确要做历史配置排查、兼容分析或存量数据解释时，才参考 reference 里的 legacy 内容。
 
 ## Workflow
 
@@ -64,21 +65,21 @@ description: 用于根据当前仓库中的 OMS 分仓代码，把自然语言�
 先把自然语言归类为以下四类之一：
 
 - `page rule`：规则页级别配置，使用 `DispatchRuleVO`
-- `custom rule`：条件命中后指定仓，使用 `AddCustomRuleReqVO` / `UpdateCustomRuleReqVO`
 - `special rule`：按 `ruleCode` 启停，使用 `OrderDispatchSpecialRuleDTO`
 - `reset rules`：整套默认规则重置，使用 `ResetRuleVO`
+- `legacy custom rule request`：历史条件路由诉求，默认只说明“已弃用，不再展示”
 
-不要把“页级策略”和“custom rule 条件仓”混在一个内部执行草案里。
+不要把“页级策略”和“已弃用的条件路由”混在同一个新方案里。
 
 ### Step 2. 提取必要字段
 
 按类型最少要补齐这些字段：
 
 - `page rule`：`merchantNo`、`pageName`、`isDefault`、`ruleItems`
-- `custom rule add`：`merchantNo`、`ruleName`、`warehouseId`
-- `custom rule update`：`ruleId`
 - `special rule`：`merchantNo`、`ruleCode`、`status`
 - `reset rules`：`merchantNo` 和各规则枚举分组
+
+如果是 `legacy custom rule request`，默认不要继续收集新建配置字段；先说明该能力已弃用。只有在用户明确要排查历史配置时，才补充 legacy 所需字段。
 
 如果用户只给了“仓库名”“渠道名”，不要臆造 ID。先说明仓库里的仓库/渠道查询实现目前是空返回，再要求用户补 `warehouseId`、`channelId`。
 
@@ -92,8 +93,8 @@ description: 用于根据当前仓库中的 OMS 分仓代码，把自然语言�
 映射原则：
 
 - 页级规则用 `DispatchStrategyEnum`
-- 条件路由用 `AddCustomRuleReqVO` / `UpdateCustomRuleReqVO` 的布尔开关、操作符和值
 - 特殊规则只改 `ruleCode + status`
+- 如果用户要的是“条件命中后强制指定仓库”，先明确这是已弃用的 `custom rule` 能力，不要直接生成新配置方案或 payload
 
 如果某个自然语言诉求在仓库代码里找不到对应字段或枚举，要直接说明“当前代码里未看到支持”，不要自造字段。
 
@@ -121,11 +122,14 @@ description: 用于根据当前仓库中的 OMS 分仓代码，把自然语言�
 6. 如果用户明确要求，再附“内部执行备注”（字段 / payload 草案）
 
 如果用户直接要求“帮我写请求体”，先确认这是给内部同事使用，再用“内部执行备注”承载，不要把它当作客户文案主体。
+如果需求本质上是 `custom rule / 条件路由`，默认回答应直接说明“该能力已弃用，不再展示”，而不是继续展开条件维度、接口或请求体。
 
 ## Output Rules
 
 - 优先输出中文，先假设受众是客户或业务方
 - 默认不要展示控制器、接口路径、DTO/VO、枚举名或原始 JSON；改用“系统会…”“需要内部配置…”等业务表述
+- 不要主动展示或推荐 `custom rule / 条件路由`
+- 如果用户提到“渠道 / 承运商 / ship service / item 数量命中指定仓”，先说明该能力已弃用；仅在明确做历史排查时再进入 legacy 细节
 - 只有在用户明确要求技术细节时，才输出字段名和 JSON，且应单独放在“内部执行备注”
 - JSON 只使用仓库里真实存在的字段
 - 不要捏造枚举值、操作符集合或额外能力
@@ -135,8 +139,7 @@ description: 用于根据当前仓库中的 OMS 分仓代码，把自然语言�
 
 ## Important Limits
 
-- `queryMerchantWarehouses(...)` 和 `queryMerchantChannels(...)` 当前实现返回空列表，不能依赖它们自动补齐仓库/渠道 ID
-- `queryShipService(...)` 可用于模糊查 ship service code
+- `queryMerchantWarehouses(...)`、`queryMerchantChannels(...)`、`queryShipService(...)` 这些能力只在历史 `custom rule` 排查时才有参考意义，不要把它们包装成现行对客能力
 - `CONFIG_REPLACEMENT_ORDER` 参与页面组合校验，但在当前选页逻辑里没有看到与 sample/cross-border 同级的命中分支，解释规则效果时要区分“可配置”与“当前选页是否实际使用”
 - reset 默认规则在当前实现里已有明确内部执行入口，不要再说“项目里没看到公开入口”
 

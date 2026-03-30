@@ -1,4 +1,4 @@
 interface:
   display_name: "OMS Dispatch 规则"
   short_description: "生成 OMS 分仓配置方案，默认不暴露接口细节"
-  default_prompt: "Use $oms-dispatch-rules 根据项目里的规则页、自定义规则、特殊规则和 DispatchStrategyEnum，先输出客户可读的 OMS 分仓配置方案与风险提示；仅在明确要求时附内部字段和 payload 草案。"
+  default_prompt: "Use $oms-dispatch-rules 根据项目里的规则页、特殊规则和 DispatchStrategyEnum，先输出客户可读的 OMS 分仓配置方案与风险提示；不要再把 custom rule 当成现行能力展示，只有历史排查时才提及。"
