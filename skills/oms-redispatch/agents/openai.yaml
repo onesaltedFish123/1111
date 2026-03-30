@@ -1,4 +1,4 @@
 interface:
   display_name: "OMS 重新分仓"
-  short_description: "分析 OMS 执行前与执行中重分仓场景，并输出建议与执行确认方案"
-  default_prompt: "Use $oms-redispatch 基于项目里的 SO/DO 重分仓、解除分仓和合单取消后重新拆单实现，先给出诊断与建议，再在用户确认后整理 OMS 重分仓执行方案。"
+  short_description: "分析重分仓场景，优先输出客户可读建议"
+  default_prompt: "Use $oms-redispatch 基于项目里的 SO/DO 重分仓、解除分仓和合单取消后重新拆单实现，先给客户可读的诊断与建议；仅在明确要求时附内部执行草案。"

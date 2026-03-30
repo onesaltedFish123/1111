@@ -1,4 +1,4 @@
 interface:
   display_name: "OMS Dispatch 规则"
-  short_description: "用自然语言生成并校验 OMS 分仓规则配置、运行时映射与确认流程"
-  default_prompt: "Use $oms-dispatch-rules 根据项目里的规则页、自定义规则、特殊规则和 DispatchStrategyEnum，把用户的自然语言需求转换为 OMS 分仓配置方案、payload、运行时解释和执行前确认。"
+  short_description: "生成 OMS 分仓配置方案，默认不暴露接口细节"
+  default_prompt: "Use $oms-dispatch-rules 根据项目里的规则页、自定义规则、特殊规则和 DispatchStrategyEnum，先输出客户可读的 OMS 分仓配置方案与风险提示；仅在明确要求时附内部字段和 payload 草案。"
